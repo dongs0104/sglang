@@ -483,6 +483,7 @@ def main(args):
         save_allreduce_configs(
             configs=best_configs,
             hidden_size=hidden_size,
+            tp_size=world_size,
             output_dir=args.output_dir,
         )
     

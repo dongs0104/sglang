@@ -126,24 +126,25 @@ def get_all_backend_configs():
     return configs
 
 
-def get_config_file_name(hidden_size: int) -> str:
+def get_config_file_name(hidden_size: int, tp_size: int) -> str:
     """
-    Get configuration file name based on device and hidden size.
+    Get configuration file name based on device, hidden size, and TP size.
     
     Args:
         hidden_size: Hidden dimension of the model
+        tp_size: Tensor parallel size
         
     Returns:
         Configuration file name
     """
     device_name = get_device_name().replace(" ", "_")
-    return f"allreduce_config_hidden={hidden_size},device={device_name}.json"
+    return f"allreduce_config_hidden={hidden_size},tp={tp_size},device={device_name}.json"
 
 
 @functools.lru_cache(maxsize=None)
-def get_allreduce_configs(hidden_size: int) -> Optional[Dict[int, AllReduceBackendConfig]]:
+def get_allreduce_configs(hidden_size: int, tp_size: int) -> Optional[Dict[int, AllReduceBackendConfig]]:
     """
-    Load tuned allreduce configurations for the given hidden size.
+    Load tuned allreduce configurations for the given hidden size and TP size.
     
     The return value will be a dictionary that maps batch sizes to configurations.
     To evaluate on a given batch size bs, the closest batch size in the grid should
@@ -151,11 +152,12 @@ def get_allreduce_configs(hidden_size: int) -> Optional[Dict[int, AllReduceBacke
     
     Args:
         hidden_size: Hidden dimension of the model
+        tp_size: Tensor parallel size
         
     Returns:
         Dictionary mapping batch sizes to AllReduceBackendConfig, or None if not found
     """
-    config_file_name = get_config_file_name(hidden_size)
+    config_file_name = get_config_file_name(hidden_size, tp_size)
     
     config_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
     
@@ -209,19 +211,21 @@ def get_default_allreduce_config(batch_size: int) -> AllReduceBackendConfig:
 def select_allreduce_config(
     batch_size: int,
     hidden_size: int,
+    tp_size: int,
 ) -> AllReduceBackendConfig:
     """
-    Select optimal allreduce configuration for the given batch size and hidden size.
+    Select optimal allreduce configuration for the given batch size, hidden size, and TP size.
     
     Args:
         batch_size: Number of tokens
         hidden_size: Hidden dimension
+        tp_size: Tensor parallel size
         
     Returns:
         Selected AllReduceBackendConfig
     """
     # Try to load tuned configurations
-    configs = get_allreduce_configs(hidden_size)
+    configs = get_allreduce_configs(hidden_size, tp_size)
     
     if configs:
         # Find the closest batch size in the config
@@ -235,6 +239,7 @@ def select_allreduce_config(
 def save_allreduce_configs(
     configs: Dict[int, AllReduceBackendConfig],
     hidden_size: int,
+    tp_size: int,
     output_dir: Optional[str] = None,
 ) -> None:
     """
@@ -243,6 +248,7 @@ def save_allreduce_configs(
     Args:
         configs: Dictionary mapping batch sizes to AllReduceBackendConfig
         hidden_size: Hidden dimension
+        tp_size: Tensor parallel size
         output_dir: Output directory (optional)
     """
     # Always use the fixed path: python/sglang/srt/layers/allreduce/configs
@@ -253,7 +259,7 @@ def save_allreduce_configs(
     
     os.makedirs(output_dir, exist_ok=True)
     
-    config_file_name = get_config_file_name(hidden_size)
+    config_file_name = get_config_file_name(hidden_size, tp_size)
     config_file_path = os.path.join(output_dir, config_file_name)
     
     # Convert AllReduceBackendConfig objects to dicts

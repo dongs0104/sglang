@@ -99,8 +99,7 @@ class AdaptiveAllReduceLayer:
         
         # Check availability
         self.flashinfer_available = (
-            _flashinfer_comm is not None 
-            and hasattr(_flashinfer_comm, "trtllm_allreduce_fusion")
+            _flashinfer_comm is not None
             and flashinfer_workspace_tensor is not None
         )
         self.torch_symm_mem_available = (
@@ -154,6 +153,7 @@ class AdaptiveAllReduceLayer:
             config = select_allreduce_config(
                 batch_size=batch_size,
                 hidden_size=self.hidden_size,
+                tp_size=self.world_size,
             )
             logger.debug(
                 f"Selected backend for bs={batch_size}: {config.backend_name}"

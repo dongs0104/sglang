@@ -38,7 +38,7 @@ python -m sglang.launch_server \
     --enable-adaptive-allreduce
 ```
 
-Config files are saved in `configs/` directory with format: `allreduce_config_hidden={hidden_size},device={device_name}.json`
+Config files are saved in `configs/` directory with format: `allreduce_config_hidden={hidden_size},tp={tp_size},device={device_name}.json`
 
 ## Parameters
 
