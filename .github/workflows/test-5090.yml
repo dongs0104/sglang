@@ -47,7 +47,6 @@ jobs:
           '[0,1,2,3,4,5]') }}
     env:
       RUNNER_LABELS: 1-gpu-5090
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -56,6 +55,13 @@ jobs:
         timeout-minutes: 15
         run: |
           bash scripts/ci/ci_install_dependency.sh
+
+      - name: Set up HuggingFace token
+        run: |
+          if [ -f /root/huggingface_token.txt ]; then
+            echo "HF_TOKEN=$(cat /root/huggingface_token.txt)" >> $GITHUB_ENV
+            echo "HuggingFace token loaded from file"
+          fi
 
       - name: Run tests
         timeout-minutes: 60
