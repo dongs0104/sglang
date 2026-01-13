@@ -26,11 +26,6 @@ on:
           - '4'
           - '8'
           - '12'
-      test_path:
-        description: 'Only run tests in this path (e.g., registered/dllm/). Leave empty for all tests.'
-        required: false
-        default: ''
-        type: string
   schedule:
     # Run daily at 2 AM UTC to track 5090 compatibility
     - cron: '0 2 * * *'
@@ -76,18 +71,12 @@ jobs:
           cd test/
           SUITE="${{ inputs.suite || 'stage-b-test-small-1-gpu' }}"
           PARTITION_SIZE="${{ inputs.partition_count || '8' }}"
-          TEST_PATH_FLAG=""
-          if [[ -n "${{ inputs.test_path }}" ]]; then
-            TEST_PATH_FLAG="--path ${{ inputs.test_path }}"
-          fi
           echo "Running suite: $SUITE"
           echo "Partition: ${{ matrix.partition }} of $PARTITION_SIZE"
-          echo "Test path filter: ${{ inputs.test_path || 'none' }}"
           python3 run_suite.py --hw cuda --suite "$SUITE" \
             --auto-partition-id ${{ matrix.partition }} \
             --auto-partition-size "$PARTITION_SIZE" \
-            --continue-on-error \
-            $TEST_PATH_FLAG
+            --continue-on-error
 
       - name: Upload test results
         if: always()
@@ -110,6 +99,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Test Suite**: ${{ inputs.suite || 'stage-b-test-small-1-gpu' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Partitions**: ${{ inputs.partition_count || '8' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Test Path Filter**: ${{ inputs.test_path || 'all' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Check individual partition jobs for detailed results." >> $GITHUB_STEP_SUMMARY
