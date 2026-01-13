@@ -8,6 +8,14 @@ on:
       - '.github/workflows/test-5090.yml'
   workflow_dispatch:
     inputs:
+      suite:
+        description: 'Test suite to run'
+        required: true
+        default: 'stage-b-test-small-1-gpu'
+        type: choice
+        options:
+          - 'stage-b-test-small-1-gpu'
+          - 'stage-b-test-large-1-gpu'
       partition_count:
         description: 'Number of partitions (parallel jobs)'
         required: true
@@ -63,13 +71,13 @@ jobs:
           # Source CI environment config (HF_TOKEN, LD_LIBRARY_PATH)
           source /etc/profile.d/sglang-ci.sh
           cd test/
-          SUITE="stage-b-test-small-1-gpu"
+          SUITE="${{ inputs.suite || 'stage-b-test-small-1-gpu' }}"
           PARTITION_SIZE="${{ inputs.partition_count || '8' }}"
           TEST_PATH_FLAG=""
           if [[ -n "${{ inputs.test_path }}" ]]; then
             TEST_PATH_FLAG="--path ${{ inputs.test_path }}"
           fi
-          echo "Running suite: $SUITE (5090-compatible tests only)"
+          echo "Running suite: $SUITE"
           echo "Partition: ${{ matrix.partition }} of $PARTITION_SIZE"
           echo "Test path filter: ${{ inputs.test_path || 'none' }}"
           python3 run_suite.py --hw cuda --suite "$SUITE" \
@@ -97,10 +105,8 @@ jobs:
         run: |
           echo "## 5090 GPU Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Test Suite**: stage-b-test-small-1-gpu (5090-compatible tests only)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test Suite**: ${{ inputs.suite || 'stage-b-test-small-1-gpu' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Partitions**: ${{ inputs.partition_count || '8' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Test Path Filter**: ${{ inputs.test_path || 'all' }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Tests that failed on 5090 (SM120 incompatible) are in stage-b-test-large-1-gpu." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Check individual partition jobs for detailed results." >> $GITHUB_STEP_SUMMARY
