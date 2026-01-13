@@ -110,9 +110,13 @@ if [ -n "$OPTIONAL_DEPS" ]; then
 fi
 echo "Installing python extras: [${EXTRAS}]"
 
-# For Blackwell, dependencies are pre-installed so pip should skip them
-# (no --no-deps needed since pre-installed packages will be reused)
-$PIP_CMD install -e "python[${EXTRAS}]" --extra-index-url https://download.pytorch.org/whl/${CU_VERSION} $PIP_INSTALL_SUFFIX
+if [ "$IS_BLACKWELL" = "1" ]; then
+    # For Blackwell, use --no-deps and --no-build-isolation to avoid race conditions
+    # Dependencies are pre-installed on the machines
+    $PIP_CMD install -e "python" --no-deps --no-build-isolation $PIP_INSTALL_SUFFIX
+else
+    $PIP_CMD install -e "python[${EXTRAS}]" --extra-index-url https://download.pytorch.org/whl/${CU_VERSION} $PIP_INSTALL_SUFFIX
+fi
 
 # Install router for pd-disagg test (skip for Blackwell if already installed)
 if [ "$IS_BLACKWELL" != "1" ]; then
