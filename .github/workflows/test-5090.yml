@@ -56,6 +56,7 @@ jobs:
     env:
       RUNNER_LABELS: 1-gpu-5090
       SGLANG_IS_IN_CI: "true"
+      LD_LIBRARY_PATH: "/usr/local/cuda-12.4/targets/x86_64-linux/lib:/usr/local/lib/python3.10/dist-packages/nvidia/cudnn/lib:/usr/local/lib/python3.10/dist-packages/nvidia/nvshmem/lib:/usr/local/lib/python3.10/dist-packages/nvidia/cuda_runtime/lib"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
