@@ -57,19 +57,12 @@ jobs:
         run: |
           bash scripts/ci/ci_install_dependency.sh
 
-      - name: Set up HuggingFace token
+      - name: Set up environment
         run: |
-          if [ -f /root/huggingface_token.txt ]; then
-            echo "HF_TOKEN=$(cat /root/huggingface_token.txt)" >> $GITHUB_ENV
-            echo "HuggingFace token loaded from file"
-          fi
-
-      - name: Set up library paths
-        run: |
-          # Add nvshmem library path for torch imports
-          NVSHMEM_LIB=$(python3 -c "import nvidia.nvshmem; print(nvidia.nvshmem.__path__[0])")/lib
-          echo "LD_LIBRARY_PATH=${NVSHMEM_LIB}:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-          echo "Added nvshmem library path: ${NVSHMEM_LIB}"
+          # Source CI environment config (HF_TOKEN, LD_LIBRARY_PATH)
+          source /etc/profile.d/sglang-ci.sh
+          echo "HF_TOKEN=${HF_TOKEN}" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
 
       - name: Run tests
         timeout-minutes: 60
