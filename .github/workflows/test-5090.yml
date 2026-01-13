@@ -64,6 +64,13 @@ jobs:
             echo "HuggingFace token loaded from file"
           fi
 
+      - name: Set up library paths
+        run: |
+          # Add nvshmem library path for torch imports
+          NVSHMEM_LIB=$(python3 -c "import nvidia.nvshmem; print(nvidia.nvshmem.__path__[0])")/lib
+          echo "LD_LIBRARY_PATH=${NVSHMEM_LIB}:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+          echo "Added nvshmem library path: ${NVSHMEM_LIB}"
+
       - name: Run tests
         timeout-minutes: 60
         run: |
