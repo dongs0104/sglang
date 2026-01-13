@@ -96,10 +96,12 @@ else
     PIP_UNINSTALL_SUFFIX=""
 fi
 
-# Clean up existing installations
-$PIP_UNINSTALL_CMD sgl-kernel sglang $PIP_UNINSTALL_SUFFIX || true
-$PIP_UNINSTALL_CMD flashinfer-python flashinfer-cubin flashinfer-jit-cache $PIP_UNINSTALL_SUFFIX || true
-$PIP_UNINSTALL_CMD opencv-python opencv-python-headless $PIP_UNINSTALL_SUFFIX || true
+# Clean up existing installations (skip for Blackwell - dependencies are pre-installed)
+if [ "$IS_BLACKWELL" != "1" ]; then
+    $PIP_UNINSTALL_CMD sgl-kernel sglang $PIP_UNINSTALL_SUFFIX || true
+    $PIP_UNINSTALL_CMD flashinfer-python flashinfer-cubin flashinfer-jit-cache $PIP_UNINSTALL_SUFFIX || true
+    $PIP_UNINSTALL_CMD opencv-python opencv-python-headless $PIP_UNINSTALL_SUFFIX || true
+fi
 
 # Install the main package
 EXTRAS="dev"
@@ -108,10 +110,18 @@ if [ -n "$OPTIONAL_DEPS" ]; then
 fi
 echo "Installing python extras: [${EXTRAS}]"
 
-$PIP_CMD install -e "python[${EXTRAS}]" --extra-index-url https://download.pytorch.org/whl/${CU_VERSION} $PIP_INSTALL_SUFFIX
+if [ "$IS_BLACKWELL" = "1" ]; then
+    # For Blackwell, use --no-deps to avoid reinstalling pre-installed dependencies
+    # This prevents race conditions when multiple runners install concurrently
+    $PIP_CMD install -e "python[${EXTRAS}]" --no-deps --extra-index-url https://download.pytorch.org/whl/${CU_VERSION} $PIP_INSTALL_SUFFIX
+else
+    $PIP_CMD install -e "python[${EXTRAS}]" --extra-index-url https://download.pytorch.org/whl/${CU_VERSION} $PIP_INSTALL_SUFFIX
+fi
 
-# Install router for pd-disagg test
-$PIP_CMD install sglang-router $PIP_INSTALL_SUFFIX
+# Install router for pd-disagg test (skip for Blackwell if already installed)
+if [ "$IS_BLACKWELL" != "1" ]; then
+    $PIP_CMD install sglang-router $PIP_INSTALL_SUFFIX
+fi
 
 # Remove flash_attn folder to avoid conflicts
 PYTHON_LIB_PATH=$(python3 -c "import site; print(site.getsitepackages()[0])")
@@ -138,6 +148,15 @@ if [ "${CUSTOM_BUILD_SGL_KERNEL:-}" = "true" ]; then
         WHEEL_ARCH="x86_64"
     fi
     $PIP_CMD install sgl-kernel/dist/sgl_kernel-${SGL_KERNEL_VERSION_FROM_KERNEL}-cp310-abi3-manylinux2014_${WHEEL_ARCH}.whl --force-reinstall $PIP_INSTALL_SUFFIX
+elif [ "$IS_BLACKWELL" = "1" ]; then
+    # For Blackwell, check if correct version is already installed to avoid race conditions
+    INSTALLED_SGL_KERNEL=$(pip show sgl-kernel 2>/dev/null | grep "^Version:" | awk '{print $2}' || echo "")
+    if [ "$INSTALLED_SGL_KERNEL" = "$SGL_KERNEL_VERSION_FROM_SRT" ]; then
+        echo "sgl-kernel==${SGL_KERNEL_VERSION_FROM_SRT} already installed, skipping"
+    else
+        echo "Installing sgl-kernel==${SGL_KERNEL_VERSION_FROM_SRT} (current: ${INSTALLED_SGL_KERNEL:-none})"
+        $PIP_CMD install sgl-kernel==${SGL_KERNEL_VERSION_FROM_SRT} $PIP_INSTALL_SUFFIX
+    fi
 else
     $PIP_CMD install sgl-kernel==${SGL_KERNEL_VERSION_FROM_SRT} --force-reinstall $PIP_INSTALL_SUFFIX
 fi
@@ -145,8 +164,10 @@ fi
 # Show current packages
 $PIP_CMD list
 
-# Install other python dependencies
-$PIP_CMD install mooncake-transfer-engine==0.3.8.post1 "${NVRTC_SPEC}" py-spy scipy huggingface_hub[hf_xet] pytest $PIP_INSTALL_SUFFIX
+# Install other python dependencies (skip for Blackwell if already installed)
+if [ "$IS_BLACKWELL" != "1" ]; then
+    $PIP_CMD install mooncake-transfer-engine==0.3.8.post1 "${NVRTC_SPEC}" py-spy scipy huggingface_hub[hf_xet] pytest $PIP_INSTALL_SUFFIX
+fi
 
 if [ "$IS_BLACKWELL" != "1" ]; then
     # For lmms_evals evaluating MMMU
@@ -155,11 +176,45 @@ if [ "$IS_BLACKWELL" != "1" ]; then
 fi
 
 # DeepEP depends on nvshmem 3.4.5
-$PIP_CMD install nvidia-nvshmem-cu12==3.4.5 --force-reinstall $PIP_INSTALL_SUFFIX
+if [ "$IS_BLACKWELL" = "1" ]; then
+    INSTALLED_NVSHMEM=$(pip show nvidia-nvshmem-cu12 2>/dev/null | grep "^Version:" | awk '{print $2}' || echo "")
+    if [ "$INSTALLED_NVSHMEM" = "3.4.5" ]; then
+        echo "nvidia-nvshmem-cu12==3.4.5 already installed, skipping"
+    else
+        echo "Installing nvidia-nvshmem-cu12==3.4.5 (current: ${INSTALLED_NVSHMEM:-none})"
+        $PIP_CMD install nvidia-nvshmem-cu12==3.4.5 $PIP_INSTALL_SUFFIX
+    fi
+else
+    $PIP_CMD install nvidia-nvshmem-cu12==3.4.5 --force-reinstall $PIP_INSTALL_SUFFIX
+fi
 
 # Cudnn with version less than 9.16.0.29 will cause performance regression on Conv3D kernel
-$PIP_CMD install nvidia-cudnn-cu12==9.16.0.29 --force-reinstall $PIP_INSTALL_SUFFIX
+if [ "$IS_BLACKWELL" = "1" ]; then
+    INSTALLED_CUDNN=$(pip show nvidia-cudnn-cu12 2>/dev/null | grep "^Version:" | awk '{print $2}' || echo "")
+    if [ "$INSTALLED_CUDNN" = "9.16.0.29" ]; then
+        echo "nvidia-cudnn-cu12==9.16.0.29 already installed, skipping"
+    else
+        echo "Installing nvidia-cudnn-cu12==9.16.0.29 (current: ${INSTALLED_CUDNN:-none})"
+        $PIP_CMD install nvidia-cudnn-cu12==9.16.0.29 $PIP_INSTALL_SUFFIX
+    fi
+else
+    $PIP_CMD install nvidia-cudnn-cu12==9.16.0.29 --force-reinstall $PIP_INSTALL_SUFFIX
+fi
 $PIP_CMD uninstall xformers || true
+
+# Skip flashinfer installation for Blackwell (pre-installed)
+if [ "$IS_BLACKWELL" = "1" ]; then
+    INSTALLED_FLASHINFER=$(pip show flashinfer-jit-cache 2>/dev/null | grep "^Version:" | awk '{print $2}' | cut -d'+' -f1 || echo "")
+    if [ "$INSTALLED_FLASHINFER" = "$FLASHINFER_VERSION" ]; then
+        echo "flashinfer-jit-cache==${FLASHINFER_VERSION} already installed, skipping"
+        FLASHINFER_INSTALLED=true
+    else
+        echo "Installing flashinfer-jit-cache==${FLASHINFER_VERSION} (current: ${INSTALLED_FLASHINFER:-none})"
+        FLASHINFER_INSTALLED=false
+    fi
+else
+    FLASHINFER_INSTALLED=false
+fi
 
 # Install flashinfer-jit-cache with caching and retry logic (flashinfer.ai can have transient DNS issues)
 # Cache directory for flashinfer wheels (persists across CI runs on self-hosted runners)
