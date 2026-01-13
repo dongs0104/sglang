@@ -57,16 +57,11 @@ jobs:
         run: |
           bash scripts/ci/ci_install_dependency.sh
 
-      - name: Set up environment
-        run: |
-          # Source CI environment config (HF_TOKEN, LD_LIBRARY_PATH)
-          source /etc/profile.d/sglang-ci.sh
-          echo "HF_TOKEN=${HF_TOKEN}" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-
       - name: Run tests
         timeout-minutes: 60
         run: |
+          # Source CI environment config (HF_TOKEN, LD_LIBRARY_PATH)
+          source /etc/profile.d/sglang-ci.sh
           cd test/
           SUITE="stage-b-test-small-1-gpu"
           PARTITION_SIZE="${{ inputs.partition_count || '8' }}"
